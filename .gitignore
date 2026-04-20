@@ -1,0 +1,21 @@
+.idea/
+.vscode/
+.DS_Store
+
+target/
+build/
+out/
+
+.mvn/wrapper/maven-wrapper.jar
+
+*.iml
+*.log
+*.swp
+
+.env
+coverage/
+
+# Keep local docs out of the initial remote push.
+README.md
+docs/*.md
+event-driven-order-inventory-blueprint.md
