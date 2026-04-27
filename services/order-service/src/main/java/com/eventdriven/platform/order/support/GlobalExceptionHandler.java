@@ -27,6 +27,18 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, exception.getMessage(), List.of(), request);
     }
 
+    @ExceptionHandler(InvalidOrderException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidOrder(InvalidOrderException exception,
+                                                               HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, exception.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(UpstreamServiceException.class)
+    public ResponseEntity<ApiErrorResponse> handleUpstreamFailure(UpstreamServiceException exception,
+                                                                  HttpServletRequest request) {
+        return build(HttpStatus.BAD_GATEWAY, exception.getMessage(), List.of(), request);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception,
                                                                HttpServletRequest request) {

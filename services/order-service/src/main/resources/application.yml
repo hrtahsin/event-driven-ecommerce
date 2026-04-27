@@ -37,6 +37,9 @@ info:
     description: Owns order persistence, state transitions, and order outbox records
 
 app:
+  clients:
+    catalog:
+      base-url: ${CATALOG_SERVICE_URL:http://localhost:8082}
   security:
     jwt:
       issuer: ${APP_SECURITY_JWT_ISSUER:identity-service}

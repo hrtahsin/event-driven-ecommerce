@@ -1,5 +1,7 @@
 package com.eventdriven.platform.order.orders;
 
+import com.eventdriven.platform.order.catalog.CatalogClient;
+import com.eventdriven.platform.order.catalog.ProductSnapshot;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,6 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -26,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.when;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -48,23 +53,30 @@ class OrderServiceIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private CatalogClient catalogClient;
+
     @Test
     void shouldCreateReadAndListCustomerOrder() throws Exception {
         UUID customerId = UUID.randomUUID();
         UUID productId = UUID.randomUUID();
         String token = customerToken(customerId);
+        when(catalogClient.getProduct(productId)).thenReturn(new ProductSnapshot(
+                productId,
+                "CAM-1001",
+                "Camera Kit",
+                new BigDecimal("799.99"),
+                "USD",
+                true
+        ));
 
         String responseBody = mockMvc.perform(post("/orders")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new CreateOrderPayload(
-                                "usd",
                                 List.of(new CreateOrderItemPayload(
                                         productId,
-                                        "cam-1001",
-                                        "Camera Kit",
-                                        2,
-                                        "799.99"
+                                        2
                                 ))
                         ))))
                 .andExpect(status().isCreated())
@@ -94,6 +106,28 @@ class OrderServiceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.items[0].id").value(orderId));
+    }
+
+    @Test
+    void shouldRejectInactiveCatalogProduct() throws Exception {
+        UUID productId = UUID.randomUUID();
+        when(catalogClient.getProduct(productId)).thenReturn(new ProductSnapshot(
+                productId,
+                "ARCHIVED-1",
+                "Archived Product",
+                new BigDecimal("10.00"),
+                "USD",
+                false
+        ));
+
+        mockMvc.perform(post("/orders")
+                        .header("Authorization", "Bearer " + customerToken(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateOrderPayload(
+                                List.of(new CreateOrderItemPayload(productId, 1))
+                        ))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Product is not active: " + productId));
     }
 
     @Test
@@ -136,17 +170,13 @@ class OrderServiceIntegrationTest {
     }
 
     private record CreateOrderPayload(
-            String currency,
             List<CreateOrderItemPayload> items
     ) {
     }
 
     private record CreateOrderItemPayload(
             UUID productId,
-            String sku,
-            String productName,
-            Integer quantity,
-            String unitPrice
+            Integer quantity
     ) {
     }
 }
