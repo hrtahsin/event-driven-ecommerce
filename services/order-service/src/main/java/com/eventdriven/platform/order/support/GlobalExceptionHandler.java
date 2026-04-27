@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -24,6 +25,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleNotFound(ResourceNotFoundException exception,
                                                            HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, exception.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(InvalidOrderException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidOrder(InvalidOrderException exception,
+                                                               HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, exception.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(UpstreamServiceException.class)
+    public ResponseEntity<ApiErrorResponse> handleUpstreamFailure(UpstreamServiceException exception,
+                                                                  HttpServletRequest request) {
+        return build(HttpStatus.BAD_GATEWAY, exception.getMessage(), List.of(), request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception,
+                                                               HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, exception.getMessage(), List.of(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
