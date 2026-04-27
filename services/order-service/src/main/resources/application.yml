@@ -35,3 +35,9 @@ info:
   app:
     name: Order Service
     description: Owns order persistence, state transitions, and order outbox records
+
+app:
+  security:
+    jwt:
+      issuer: ${APP_SECURITY_JWT_ISSUER:identity-service}
+      secret: ${APP_SECURITY_JWT_SECRET:change-me-phase-2-shared-jwt-secret-1234567890}

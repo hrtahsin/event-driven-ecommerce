@@ -1,5 +1,6 @@
 package com.eventdriven.platform.order.orders;
 
+import com.eventdriven.platform.order.config.JwtAuthenticatedUser;
 import com.eventdriven.platform.order.domain.OrderEntity;
 import com.eventdriven.platform.order.domain.OrderItemEntity;
 import com.eventdriven.platform.order.domain.OrderRepository;
@@ -12,6 +13,7 @@ import com.eventdriven.platform.order.orders.dto.PagedOrdersResponse;
 import com.eventdriven.platform.order.support.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,9 +31,9 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse createOrder(CreateOrderRequest request) {
+    public OrderResponse createOrder(UUID customerId, CreateOrderRequest request) {
         OrderEntity order = new OrderEntity();
-        order.setCustomerId(request.customerId());
+        order.setCustomerId(customerId);
         order.setCurrency(normalizeCurrency(request.currency()));
         order.setStatus(OrderStatus.CREATED);
 
@@ -44,9 +46,11 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public OrderResponse getOrder(UUID orderId) {
-        return toResponse(orderRepository.findWithItemsById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
+    public OrderResponse getOrder(JwtAuthenticatedUser user, UUID orderId) {
+        OrderEntity order = orderRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        assertCanRead(user, order);
+        return toResponse(order);
     }
 
     @Transactional(readOnly = true)
@@ -114,5 +118,12 @@ public class OrderService {
 
     private String normalizeProductName(String productName) {
         return productName.trim();
+    }
+
+    private void assertCanRead(JwtAuthenticatedUser user, OrderEntity order) {
+        if (user.hasRole("ADMIN") || order.getCustomerId().equals(user.userId())) {
+            return;
+        }
+        throw new AccessDeniedException("Order does not belong to the authenticated user");
     }
 }
