@@ -26,6 +26,10 @@ public class OrderOutboxService {
     }
 
     public void saveOrderCreated(OrderEntity order) {
+        outboxEventRepository.save(toOrderCreatedOutboxEvent(order));
+    }
+
+    OutboxEventEntity toOrderCreatedOutboxEvent(OrderEntity order) {
         String eventId = UUID.randomUUID().toString();
         OrderCreatedEvent payload = toOrderCreatedEvent(order);
         EventEnvelope<OrderCreatedEvent> envelope = new EventEnvelope<>(
@@ -45,8 +49,7 @@ public class OrderOutboxService {
         outboxEvent.setEventType(TopicNames.ORDER_CREATED);
         outboxEvent.setPayload(objectMapper.valueToTree(envelope));
         outboxEvent.setStatus(OutboxEventStatus.PENDING);
-
-        outboxEventRepository.save(outboxEvent);
+        return outboxEvent;
     }
 
     private OrderCreatedEvent toOrderCreatedEvent(OrderEntity order) {

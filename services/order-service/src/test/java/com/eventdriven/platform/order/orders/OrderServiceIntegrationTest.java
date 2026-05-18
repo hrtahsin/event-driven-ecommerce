@@ -1,7 +1,11 @@
 package com.eventdriven.platform.order.orders;
 
+import com.eventdriven.platform.common.events.TopicNames;
 import com.eventdriven.platform.order.catalog.CatalogClient;
 import com.eventdriven.platform.order.catalog.ProductSnapshot;
+import com.eventdriven.platform.order.outbox.OutboxEventEntity;
+import com.eventdriven.platform.order.outbox.OutboxEventRepository;
+import com.eventdriven.platform.order.outbox.OutboxEventStatus;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
@@ -31,6 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
@@ -55,6 +60,9 @@ class OrderServiceIntegrationTest {
 
     @MockBean
     private CatalogClient catalogClient;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
 
     @Test
     void shouldCreateReadAndListCustomerOrder() throws Exception {
@@ -92,6 +100,13 @@ class OrderServiceIntegrationTest {
 
         JsonNode order = objectMapper.readTree(responseBody);
         String orderId = order.get("id").asText();
+        List<OutboxEventEntity> outboxEvents = outboxEventRepository.findByAggregateIdAndEventType(
+                orderId,
+                TopicNames.ORDER_CREATED
+        );
+        assertEquals(1, outboxEvents.size());
+        assertEquals(OutboxEventStatus.PENDING, outboxEvents.getFirst().getStatus());
+        assertEquals(orderId, outboxEvents.getFirst().getPayload().at("/payload/orderId").asText());
 
         mockMvc.perform(get("/orders/{orderId}", orderId)
                         .header("Authorization", "Bearer " + token))
