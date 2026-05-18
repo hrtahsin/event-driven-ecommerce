@@ -40,6 +40,12 @@ app:
   clients:
     catalog:
       base-url: ${CATALOG_SERVICE_URL:http://localhost:8082}
+  outbox:
+    publisher:
+      enabled: ${APP_OUTBOX_PUBLISHER_ENABLED:true}
+      batch-size: ${APP_OUTBOX_PUBLISHER_BATCH_SIZE:50}
+      fixed-delay: ${APP_OUTBOX_PUBLISHER_FIXED_DELAY:5000}
+      send-timeout: ${APP_OUTBOX_PUBLISHER_SEND_TIMEOUT:PT5S}
   security:
     jwt:
       issuer: ${APP_SECURITY_JWT_ISSUER:identity-service}
