@@ -3,27 +3,26 @@ package com.eventdriven.platform.order.outbox;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class OutboxPublisherJob {
 
     private final OutboxEventRepository outboxEventRepository;
-    private final OutboxMessagePublisher outboxMessagePublisher;
+    private final OutboxPublishingService outboxPublishingService;
     private final OutboxPublisherProperties properties;
 
     public OutboxPublisherJob(OutboxEventRepository outboxEventRepository,
-                              OutboxMessagePublisher outboxMessagePublisher,
+                              OutboxPublishingService outboxPublishingService,
                               OutboxPublisherProperties properties) {
         this.outboxEventRepository = outboxEventRepository;
-        this.outboxMessagePublisher = outboxMessagePublisher;
+        this.outboxPublishingService = outboxPublishingService;
         this.properties = properties;
     }
 
     @Scheduled(fixedDelayString = "${app.outbox.publisher.fixed-delay}")
-    @Transactional
     public void publishPendingEvents() {
         if (!properties.isEnabled()) {
             return;
@@ -33,6 +32,16 @@ public class OutboxPublisherJob {
                 OutboxEventStatus.PENDING,
                 PageRequest.of(0, properties.getBatchSize())
         );
-        events.forEach(outboxMessagePublisher::publish);
+        events.stream()
+                .map(OutboxEventEntity::getId)
+                .forEach(this::publishEvent);
+    }
+
+    private void publishEvent(UUID eventId) {
+        try {
+            outboxPublishingService.publishPendingEvent(eventId);
+        } catch (OutboxPublishException exception) {
+            // Leave the row PENDING; the next scheduled run will retry it.
+        }
     }
 }
