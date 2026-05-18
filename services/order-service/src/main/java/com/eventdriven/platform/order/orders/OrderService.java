@@ -12,6 +12,7 @@ import com.eventdriven.platform.order.orders.dto.CreateOrderRequest;
 import com.eventdriven.platform.order.orders.dto.OrderItemResponse;
 import com.eventdriven.platform.order.orders.dto.OrderResponse;
 import com.eventdriven.platform.order.orders.dto.PagedOrdersResponse;
+import com.eventdriven.platform.order.outbox.OrderOutboxService;
 import com.eventdriven.platform.order.support.InvalidOrderException;
 import com.eventdriven.platform.order.support.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -29,10 +30,14 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final CatalogClient catalogClient;
+    private final OrderOutboxService orderOutboxService;
 
-    public OrderService(OrderRepository orderRepository, CatalogClient catalogClient) {
+    public OrderService(OrderRepository orderRepository,
+                        CatalogClient catalogClient,
+                        OrderOutboxService orderOutboxService) {
         this.orderRepository = orderRepository;
         this.catalogClient = catalogClient;
+        this.orderOutboxService = orderOutboxService;
     }
 
     @Transactional
@@ -52,7 +57,9 @@ public class OrderService {
                 .forEach(order::addItem);
         order.recalculateTotal();
 
-        return toResponse(orderRepository.save(order));
+        OrderEntity savedOrder = orderRepository.save(order);
+        orderOutboxService.saveOrderCreated(savedOrder);
+        return toResponse(savedOrder);
     }
 
     @Transactional(readOnly = true)
