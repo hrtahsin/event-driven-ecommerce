@@ -11,20 +11,30 @@ import java.util.UUID;
 @Service
 public class InventoryReservationService {
 
+    private static final String CONSUMER_GROUP = "inventory-service";
+
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryReservationRepository inventoryReservationRepository;
+    private final ProcessedEventRepository processedEventRepository;
 
     public InventoryReservationService(InventoryItemRepository inventoryItemRepository,
-                                       InventoryReservationRepository inventoryReservationRepository) {
+                                       InventoryReservationRepository inventoryReservationRepository,
+                                       ProcessedEventRepository processedEventRepository) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.inventoryReservationRepository = inventoryReservationRepository;
+        this.processedEventRepository = processedEventRepository;
     }
 
     @Transactional
     public void handleOrderCreated(String eventId, OrderCreatedEvent event) {
+        if (processedEventRepository.existsByEventIdAndConsumerGroup(eventId, CONSUMER_GROUP)) {
+            return;
+        }
+
         aggregateQuantitiesByProduct(event).forEach((productId, quantity) ->
                 reserveOrderItem(event.orderId(), productId, quantity)
         );
+        processedEventRepository.save(new ProcessedEventEntity(eventId, CONSUMER_GROUP));
     }
 
     private void reserveOrderItem(UUID orderId, UUID productId, int quantity) {
