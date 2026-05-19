@@ -26,6 +26,13 @@ public class OutboxPublishingService {
             return;
         }
 
+        publishEvent(event);
+    }
+
+    void publishEvent(OutboxEventEntity event) {
+        if (event.getStatus() != OutboxEventStatus.PENDING) {
+            return;
+        }
         outboxMessagePublisher.publish(event);
         event.markPublished(Instant.now());
     }
